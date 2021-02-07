@@ -2,10 +2,11 @@ package handlers
 
 import (
 	"fmt"
-	"github.com/gin-gonic/gin"
 	"io/ioutil"
 	"log"
 	"net/http"
+
+	"github.com/gin-gonic/gin"
 )
 
 func checkRegion(c *gin.Context) (string, error) {
