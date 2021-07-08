@@ -2,53 +2,36 @@ package handlers
 
 import (
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net/http"
+	"net/http/httputil"
+	"net/url"
 
 	"github.com/gin-gonic/gin"
 )
 
-func checkRegion(c *gin.Context) (string, error) {
-	// TODO: Add logic here
-	return euRegion, nil
-}
-
 func HandleAnyRoute(c *gin.Context) {
 	path := c.Param("path")
+	remoteUrl := "https://pudelek.pl"
+	parsedUrl := fmt.Sprint(remoteUrl,"/", path)
+	remote, err := url.Parse(parsedUrl)
+	if err != nil {
+		panic(err)
+	}
 	clientMethod := c.Request.Method
 
-	getRegionUrl, err := checkRegion(c)
-	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"message": "Region not found!"})
-		return
+	log.Print("Preparing PROXY...")
+	proxy := httputil.NewSingleHostReverseProxy(remote)
+	proxy.Director = func(req *http.Request) {
+		req.Header = c.Request.Header
+		req.Host = remote.Host
+		req.URL.Scheme = remote.Scheme
+		req.URL.Host = remote.Host
+		req.URL.Path = c.Param("proxyPath")
 	}
-
-	internalUrl := fmt.Sprint("http://", getRegionUrl, "/", path)
-	switch clientMethod {
-	case get:
-		// Let us make request on behalf of Client to the valid endpoint
-		resp, err := http.Get(internalUrl)
-		if err != nil {
-			log.Fatalln(err)
-		}
-
-		body, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			log.Fatalln(err)
-		}
-
-		// Then let us send it to the Client
-		c.JSON(200, body)
-	case post:
-		// TODO: Implement me
-		fmt.Println("In POST method")
-		c.JSON(200, gin.H{"message": "Not implemented"})
-	case put:
-		// TODO: Implement me
-		fmt.Println("In PUT method")
-		c.JSON(200, gin.H{"message": "Not implemented"})
-	default:
-		c.JSON(http.StatusNotFound, gin.H{"message": "Method not allowed"})
-	}
+	log.Printf("Configuring underlying request for HTTP %v method", clientMethod)
+	log.Printf("Making underlying request...")
+	proxy.ServeHTTP(c.Writer, c.Request)
+	log.Printf("Request was ended without issues")
+	log.Printf("Underying HTTP staus code: %v", c.Writer.Status())
 }
