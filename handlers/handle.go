@@ -85,18 +85,20 @@ func (h *Handle) HandleAnyRoute(c *gin.Context) {
 	clientMethod := c.Request.Method
 
 	h.Logger.Debug("Preparing PROXY...")
+
 	proxy := httputil.NewSingleHostReverseProxy(remote)
 	proxy.Director = func(req *http.Request) {
 		req.Header = c.Request.Header
+		req.Header.Set("X-Forwarded-For", req.Host)
 		req.Host = remote.Host
 		req.URL.Scheme = remote.Scheme
 		req.URL.Host = remote.Host
 		req.URL.Path = c.Param("proxyPath")
 	}
 
-	h.Logger.Debug("Configuring underlying request for HTTP %v method", clientMethod)
+	h.Logger.Debug("Configuring underlying request for HTTP method", clientMethod)
 	h.Logger.Debug("Making underlying request...")
 	proxy.ServeHTTP(c.Writer, c.Request)
 	h.Logger.Debug("Request was ended without issues")
-	h.Logger.Debug("Underlying HTTP status code: %v", c.Writer.Status())
+	h.Logger.Debug("Underlying HTTP status code: ", c.Writer.Status())
 }
